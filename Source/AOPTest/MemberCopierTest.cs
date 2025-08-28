@@ -64,7 +64,19 @@ namespace MyNamespace
             var copier = MemberCopier.CreateCopierClass(classModel!);
 
             _testOutputHelper.WriteLine(copier.NormalizeWhitespace().ToFullString());
-
+            string expected = @"public static partial class Copier
+{
+    /// <summary>
+    /// Copies all property values from source to destination
+    /// </summary>
+    public static void Copy(this MyNamespace.MyClass source, MyNamespace.MyCopy destination)
+    {
+        source.CopyTo(destination.Source);
+        destination.MyProperty = source.MyProperty;
+        destination.MyProperty1 = source.MyProperty1;
+    }
+}";
+            Assert.Equal(expected, copier.NormalizeWhitespace().ToFullString());
         }
 
     }
