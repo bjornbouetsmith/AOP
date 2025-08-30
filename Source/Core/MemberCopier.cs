@@ -9,19 +9,19 @@ using Public;
 
 namespace Core
 {
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Struct)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Struct, AllowMultiple = true)]
     public class MemberCopierAttribute : Attribute
     {
         public Type DestinationType { get; set; }
     }
+
     public class MemberCopier
     {
-        public static ClassDeclarationSyntax CreateCopierClass(INamedTypeSymbol sourceType)
+        public static ClassDeclarationSyntax CreateCopierClass(INamedTypeSymbol sourceType, AttributeData attribute)
         {
             var sourceClassName = $"{sourceType.ContainingNamespace.Name}.{sourceType.Name}";
-            var attributes = sourceType.GetAttributes();
-            var attr = attributes[0];
-            var typeSymbol = attr.NamedArguments[0].Value;
+
+            var typeSymbol = attribute.NamedArguments[0].Value;
             var destinationType = (INamedTypeSymbol)typeSymbol.Value;
 
 
@@ -29,34 +29,38 @@ namespace Core
             var className = $"Copier";
             var classDeclaration = SyntaxFactory.ClassDeclaration(className).AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.StaticKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword));
 
-            var sourceMembers = GetMembers(sourceType).Select(s => new MemberAccessDeclaration("source", s));
-            var sourceMembersCannotBeCopied = GetMembers(sourceType,false).Select(s => new MemberAccessDeclaration("source", s));
-            var destinationMembers = GetMembers(destinationType).Select(s => new MemberAccessDeclaration("destination", s)).ToDictionary(d => d.MemberName);
-            var destinationMemberssCannotBeCopied = GetMembers(destinationType, false).Select(s => new MemberAccessDeclaration("destination", s)).ToDictionary(d => d.MemberName);
+            var sourceMembers = GetMembers(sourceType);
+
+            var destinationMembers = GetMembers(destinationType).ToDictionary(d => d.Name);
+
 
             var assignmentExpressions = new List<SimpleExpressionDeclaration>();
             var invocationExpressions = new List<InvocationExpressionDeclaration>();
             foreach (var sourceMember in sourceMembers)
             {
-                if ((!destinationMembers.TryGetValue(sourceMember.MemberName, out var destinationMember)))
+                if ((!destinationMembers.TryGetValue(sourceMember.Name, out var destinationMember)))
                 {
                     continue;
                 }
-                var assignment = new AssignmentDeclaration(destinationMember, sourceMember);
-                var expression = new SimpleExpressionDeclaration(assignment);
-                assignmentExpressions.Add(expression);
+                var destinationAccess = new MemberAccessDeclaration("destination", destinationMember.Name);
+                var sourceAccess = new MemberAccessDeclaration("source", sourceMember.Name);
+                if (sourceMember.CanBeCopied && destinationMember.CanBeCopied)
+                {
+                    // simple assignment
+                    var assignment = new AssignmentDeclaration(destinationAccess, sourceAccess);
+                    var expression = new SimpleExpressionDeclaration(assignment);
+                    assignmentExpressions.Add(expression);
+                }
+                else
+                {
+                    // need to call CopyTo method
+                    var invocation = new InvocationDeclaration(sourceAccess, "CopyTo", destinationAccess);
+                    var invocationExpression = new InvocationExpressionDeclaration(invocation);
+                    invocationExpressions.Add(invocationExpression);
+                }
+
             }
 
-            foreach (var sourceMember in sourceMembersCannotBeCopied)
-            {
-                if ((!destinationMemberssCannotBeCopied.TryGetValue(sourceMember.MemberName, out var destinationMember)))
-                {
-                    continue;
-                }
-                var invocation = new InvocationDeclaration(sourceMember, "CopyTo", destinationMember);
-                var invocationExpression = new InvocationExpressionDeclaration(invocation);
-                invocationExpressions.Add(invocationExpression);
-            }
             var bodyStatements = invocationExpressions.Select(e => e.ExpressionStatement).Concat(assignmentExpressions.Select(e => e.ExpressionStatement)).ToArray();
             var body = new BodyDeclaration(bodyStatements);
             var method = new MethodDeclaration("Copy", AccessModifier.Public | AccessModifier.Static,
@@ -72,14 +76,14 @@ namespace Core
 
         }
 
-        private static IEnumerable<string> GetMembers(INamedTypeSymbol sourceType, bool canBeCopied = true)
+        private static IEnumerable<MemberData> GetMembers(INamedTypeSymbol sourceType)
         {
             var members = sourceType.GetMembers().Where(s => s.Kind == SymbolKind.Property).OfType<IPropertySymbol>();
-            foreach (var member in members.Where(m => CanBeCopied(m.Type) == canBeCopied))
+            foreach (var member in members)
             {
-
-                yield return member.Name;
-
+                var canBeCopied = CanBeCopied(member.Type);
+                var isCollection = IsCollection(member.Type);
+                yield return new(member.Name, canBeCopied, isCollection);
             }
         }
 
@@ -88,6 +92,13 @@ namespace Core
             return type.IsValueType
                 || type.SpecialType == SpecialType.System_String;
         }
+
+        private static bool IsCollection(ITypeSymbol type)
+        {
+            return type.AllInterfaces.Any(i => i.SpecialType == SpecialType.System_Collections_Generic_ICollection_T);
+        }
+
+        private readonly record struct MemberData(string Name, bool CanBeCopied, bool IsCollection);
 
     }
 }

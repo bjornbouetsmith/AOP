@@ -33,12 +33,7 @@ namespace Core.Declarations
                 var convertedArguments = arguments.Select(a =>
                  SyntaxFactory.Argument
                  (
-                     SyntaxFactory.MemberAccessExpression
-                     (
-                         SyntaxKind.SimpleMemberAccessExpression,
-                         SyntaxFactory.IdentifierName(a.Expression),
-                         SyntaxFactory.IdentifierName(a.MemberName)
-                     )
+                     a.Syntax
                  ));
                 var argumentList = SyntaxFactory.SeparatedList(convertedArguments);
                 var invocation = SyntaxFactory.InvocationExpression
@@ -46,7 +41,7 @@ namespace Core.Declarations
                     SyntaxFactory.MemberAccessExpression
                     (
                         SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName(Member.Expression),
+                        Member.Syntax,
                         SyntaxFactory.IdentifierName(method)
                     ),
                     SyntaxFactory.ArgumentList(argumentList)

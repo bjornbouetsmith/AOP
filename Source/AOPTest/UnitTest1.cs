@@ -20,31 +20,31 @@ namespace AOPTest
         //    _testOutputHelper.WriteLine(result);
         //}
     }
-    public static partial class Copier
-    {
-        /// <summary>
-        /// Copies all property values from source to destination
-        /// </summary>
-        public static void Copy(this MyClass source, MyCopy destination)
-        {
-            destination.MyProperty = source.MyProperty;
-            destination.MyProperty1 = source.MyProperty1;
-        }
-    }
+    //public static partial class Copier
+    //{
+    //    /// <summary>
+    //    /// Copies all property values from source to destination
+    //    /// </summary>
+    //    public static void Copy(this MyClass source, MyCopy destination)
+    //    {
+    //        destination.MyProperty = source.MyProperty;
+    //        destination.MyProperty1 = source.MyProperty1;
+    //    }
+    //}
 
 
-    [MemberCopier(DestinationType = typeof(MyCopy))]
-    public class MyClass
-    {
-        public string MyProperty { get; set; }
-        public int MyProperty1 { get; set; }
-    }
+    //[MemberCopier(DestinationType = typeof(MyCopy))]
+    //public class MyClass
+    //{
+    //    public string MyProperty { get; set; }
+    //    public int MyProperty1 { get; set; }
+    //}
 
-    public class MyCopy
-    {
-        public string MyProperty { get; set; }
-        public int MyProperty1 { get; set; }
-    }
+    //public class MyCopy
+    //{
+    //    public string MyProperty { get; set; }
+    //    public int MyProperty1 { get; set; }
+    //}
 
     public class MyTestClass
     {
